@@ -1,6 +1,6 @@
 ---
 name: audio-and-vocal-mastering
-description: Studio basics for EQ, compression, limiting, loudness and room resonances, for audio in general and spoken voice / narration (including TTS) in particular, grounded in Ethan Winer's writing, plus measured ffmpeg pitfalls. Load before proposing, building or judging any audio post-processing (mastering chains, EQ or resonance curves, compressor settings, loudness targets, A/B samples).
+description: Studio basics for EQ, compression, limiting, loudness and room resonances, for audio in general and spoken voice / narration (including TTS) in particular, grounded in Ethan Winer's writing, with a room resonance fix script and an A/B comparison script. Load before proposing, building or judging any audio post-processing (mastering chains, EQ or resonance curves, compressor settings, loudness targets, A/B samples).
 ---
 
 # Audio and vocal mastering: EQ, compression, limiting, loudness
@@ -17,8 +17,7 @@ are marked as such. Quotes below are from his articles, fetched 2026-10-15.
    Engineers*). His own mastering move there: "I boosted 5 KHz and above by 1 dB". Broad tonal
    moves stay at 1–1.5 dB. The exception is a cut on a **measured, steady resonance**: it may be as
    deep as the resonance sticks out (up to 6 dB in the room resonance fix below), because it
-   removes something that shouldn't be there. A tool that moves bands by several dB *without* such
-   evidence is broken, not "strong".
+   removes something that shouldn't be there.
 3. **Do nothing unless it is needed.** "Every track or complete mix does not need compression!"
    (*Compressors*). Decide *why* each stage is there.
 4. **Compare fairly.** Level-match every A/B: "people will generally pick the brighter (or just
@@ -26,17 +25,13 @@ are marked as such. Quotes below are from his articles, fetched 2026-10-15.
    necessarily higher fidelity" (*Dispelling Popular Audio Myths*). Winer: the switch "be performed
    very quickly", in under a second, not minutes apart. So give the listener **alternating A/B
    files**, not separate files:
-   - one file that switches between raw and processed every **4 s**, **raw first** (2 s was too
-     short to judge);
+   - one file that switches between raw and processed every **4 s**, **raw first**;
    - processed time-aligned to raw by cross-correlation (filters can add delay);
    - **a quiet beep marks each switch**, mixed over the audio: one **660 Hz** beep (200 ms) going
      into processed, beep beep (150 ms, 150 ms gap, 150 ms) going back to raw, **10 dB under the
-     speech level**, 10 ms fades. Nothing is muted or inserted, so the file keeps the source's
-     length. (Tried and dropped: crossfades hide the switch; muted cuts are missed when the speech
-     pauses, and shorter cuts sound like glitches; inserted gaps feel jolting.)
-   - **Loudness matching for a cut-only fix: match about 75%, not 100%.** When a fix removes boom,
-     full matching turns the processed side up so far that it "FEELS like you made the person
-     louder" (the listener). For other processing, start from a full match.
+     speech level**, 10 ms fades. The file keeps the source's length;
+   - **for a cut-only fix, loudness-match about 75%**, so the processed side doesn't feel louder
+     than the raw. For other processing, start from a full match.
 
    Say what changed, and which segment is which.
 
@@ -94,10 +89,9 @@ are marked as such. Quotes below are from his articles, fetched 2026-10-15.
 - **EQ cannot really fix a room:** "no single EQ curve can give a flat response everywhere", "EQ
   cut to reduce a peak will not reduce the peak's acoustic ringing"; only "low frequency peaks
   (only) caused by natural room resonance" can be helped a little, in moderation.
-- So an automatic "detect the room" fix only **cuts the real, steady resonances, gently**. It is
-  not a multiband EQ that flattens everything.
+- So an automatic room fix only **cuts the real, steady resonances**.
 
-### Room resonance fix: the canonical method (settled in A/B listening tests, 2026-10)
+### Room resonance fix
 
 Script: `scripts/room_resonance_fix.py <out.mp3> <wav> [<wav> …] [--max-cut-db 6] [--multiplier 1]
 [--low-hz 100] [--high-hz 6000] [--bands 5] [--loudness-match 0.75]`. It prints the bands, writes
@@ -114,7 +108,7 @@ apply unchanged to every other file.
 3. It counts only if it sticks out ≥ 0.5 dB in **≥ 90% of the stretches**. Its strength is the
    **20th percentile** across stretches, so loud moments can't inflate it.
 
-**Bands: a few real parametric bells** (ffmpeg `equalizer`), not a drawn curve.
+**Bands: a few parametric bells** (ffmpeg `equalizer`).
 4. Peaks and widths come from a 1/3-octave smoothed copy; depth from the 1/12-octave copy. Keep
    the strongest **5** between **100 Hz and 6 kHz**. Cut = −min(**6 dB**, strength × **1**).
 5. **Close pairs** (bells overlapping a lot) become one wide cut over both plus one narrow, weaker
@@ -126,31 +120,13 @@ apply unchanged to every other file.
   is short) and apply the **same chain to every chapter**, so the tone never changes mid-book.
 - Always give an alternating A/B (rule 4) before adopting it.
 - What the listener hears decides. Change `--multiplier` (strength) or `--low-hz` and listen again.
+  If a male voice sounds thinner, raise `--low-hz` to about 150 Hz so the voice's own pitch is left
+  alone.
 
-**Validation (keep these as tests if you change the method):**
+**Checks (keep these as tests if you change the method):**
 - pink noise, white noise, and pink noise in speech-like bursts → **0 bands**;
 - a +4 dB bell added to pink noise at 500 Hz → found at ~500 Hz with about the same width;
 - the real ffmpeg chain, measured on noise, matches the planned response within ~0.3 dB.
-
-**Mistakes made on the way (don't repeat them):**
-- *Median of per-frame stick-out:* found "resonances" in pink noise. Random per-frame variation
-  plus a ~0.9 dB bias passed as peaks.
-- *Baseline = the whole octave around the frequency:* a resonance's own skirts lifted its baseline,
-  so +4 dB measured as about +2.
-- *Persistence test before any frequency smoothing, then heavy smoothing:* real peaks broke into
-  scattered points and were averaged away, so one voice got no bands.
-- *Half-second stretches:* rejected real resonances. 3 s stretches sounded right to the listener.
-- *A 3 dB max:* nearly every band stopped at the max, so the limit decided the depth, not the
-  detection. 6 dB with ×1 sounded right.
-- *A drawn curve with hundreds of points* (`firequalizer`): it isn't what Winer means by EQ, and it
-  can follow every bump. Use a few parametric bells.
-- *Cutting 3–5 kHz is Winer's clarity range,* but here the listener preferred keeping 100 Hz–6 kHz.
-  Listen for dullness.
-- *Full cuts at about 100–120 Hz on male voices* may be the voice's own pitch. If it sounds thinner,
-  raise `--low-hz` to about 150.
-
-**What it found (five TTS books, four voices):** 2–5 bands per book. Two books read by the same
-voice shared their bands. Different voices got different frequencies.
 
 ### Example requests (how a user asks an agent)
 
@@ -205,24 +181,11 @@ What the agent does:
 
   If the limiter takes 5–6 dB off every sentence, fix it earlier in the chain.
 
-## Measured ffmpeg pitfalls (from an audiobook TTS project, 2026-10)
+## Working with ffmpeg
 
-- **`loudnorm` linear mode silently becomes dynamic** when the gain needed would push true
-  peak over the TP limit (or the input LRA exceeds the target LRA). Dynamic mode pulled a
-  chapter's last ~2 s down ~17 dB. Check `normalization_type` in its JSON. For one fixed gain,
-  measure (`ebur128`) and apply `volume=`.
-- **`mcompand` with narrow speech bands coloured the tone even at 1:1.** That was measured
-  2026-10-15 by band energy on speech, not yet confirmed with a noise sweep (rule 5):
-  - 700–900 Hz −14.6 dB, 900–1200 Hz −6.4 dB, lows +1.8 dB;
-  - 3 wide bands stayed within ~0.2 dB except −2.7 dB at 3–6 kHz.
-
-  Don't use it for narrow bands. Confirm with noise before any multiband use.
-- **`firequalizer` with `scale=loglog`** (and an `entry(0,…)` point) silently applied no change
-  at all on ffmpeg 4.4. The default scale (`linlog`) with dense `entry()` points (every 1/24 octave)
-  worked: neutral measured 0.00 dB, and a computed 1.2 dB curve measured within 0.1 dB of plan.
-- Haas widening (`haas`) changed the band balance by < 0.5 dB on a mono voice.
-- Chatterbox TTS peaks were flat-topped (99.9th percentile within 0.1 dB of the max), so peak
-  "spike" limiting does little on that material. Measure your own source's peak distribution.
+- **One fixed loudness gain:** measure integrated loudness with `ebur128`, then apply one
+  `volume=` gain.
+- **EQ bands:** `equalizer=f=<Hz>:t=q:w=<Q>:g=<dB>`, one per band, in a chain.
 - Run experiments on copies of the audio, never on the originals.
 
 ## Sources

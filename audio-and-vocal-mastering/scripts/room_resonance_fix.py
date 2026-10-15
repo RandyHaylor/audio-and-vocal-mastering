@@ -1,6 +1,5 @@
 """Room resonance fix: detect a voice recording's steady resonances and cut them with a few real
-parametric bell filters (ffmpeg `equalizer`, RBJ peaking biquads). Canonical method, settled in
-A/B listening tests on five TTS audiobooks (2026-10).
+parametric bell filters (ffmpeg `equalizer`, RBJ peaking biquads).
 
 Detection — a resonance is a frequency that STAYS HIGH while the content changes:
 1. Voiced frames only (frame RMS within 30 dB of the loudest), read from the files in order until
@@ -11,7 +10,7 @@ Detection — a resonance is a frequency that STAYS HIGH while the content chang
    left out, so a resonance can't raise its own baseline. Then a light 1/12-octave smoothing.
 3. A frequency counts only if it sticks out >= 0.5 dB in >= 90% of the stretches. Its strength is
    its 20th percentile across them, so a few loud moments can't inflate it.
-   Controls: pink noise, white noise, and pink noise in bursts give 0 bands; a +4 dB bell added to
+   Checks: pink noise, white noise, and pink noise in bursts give 0 bands; a +4 dB bell added to
    pink noise at 500 Hz is found at ~500 Hz with the right width.
 
 Bands:
@@ -25,7 +24,7 @@ Bands:
 
 Use: measure ONCE per voice/book (>= 60 s of speech) and apply the same chain to every chapter.
 Output: the bands printed, `<out>.filter.txt` (the ffmpeg chain, to reuse), and `<out>` processed
-and partly loudness-matched (75%: full matching makes the fixed voice feel louder than the raw).
+and loudness-matched 75%, so it doesn't feel louder than the raw.
 Make the A/B with make_alternating_ab.py.
 
 Usage: room_resonance_fix.py <out.mp3> <wav> [<wav> ...] [--max-cut-db 6] [--multiplier 1]

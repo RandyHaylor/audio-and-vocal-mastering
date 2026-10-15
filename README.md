@@ -6,8 +6,7 @@ compression, limiting, loudness and room resonances, for audio in general and sp
 
 It leans on **Ethan Winer**'s writing (ethanwiner.com, *The Audio Expert*): short quotes with
 links to his articles. Other sources only fill topics he doesn't cover, and are marked as such.
-It also records ffmpeg pitfalls measured on a real audiobook TTS pipeline, such as `loudnorm`
-silently switching to dynamic mode and `mcompand` colouring the tone with narrow bands.
+It includes a room resonance fix and an A/B comparison tool.
 
 ## What it makes the agent do
 
@@ -41,7 +40,7 @@ ln -s "$PWD/audio-and-vocal-mastering/audio-and-vocal-mastering" <your agent's s
 In `audio-and-vocal-mastering/scripts/` (python3 + numpy, ffmpeg and ffprobe on PATH):
 - `room_resonance_fix.py`: detects a voice's steady resonances (frequencies that stay high while
   the speech changes) and cuts them with up to 5 parametric bell filters. It saves the ffmpeg chain
-  to reuse on every chapter. Tested: noise gives no bands, and a known resonance is found.
+  to reuse on every chapter.
 - `make_alternating_ab.py`: one A/B file, raw first, switching every 4 s, with a quiet 660 Hz beep
   at each switch (one = processed, two = raw).
 - `measure_filter_frequency_response.py`: the frequency response of any ffmpeg filter chain,

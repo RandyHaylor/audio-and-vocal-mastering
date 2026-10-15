@@ -4,9 +4,8 @@ raw first:
   into B: one beep (200 ms);
   into A: beep beep (150 ms beep, 150 ms gap, 150 ms beep).
 Beeps have 10 ms fades and sit `--below-speech-db` under the speech level (the 90th percentile of
-50 ms RMS), so they are heard but stay quiet. A beep is heard even in a pause, where a muted cut
-is not. The processed file is aligned to the raw by cross-correlation (FIR filters add delay);
-loudness-match it to the raw first.
+50 ms RMS), so they are heard but stay quiet. The processed file is aligned to the raw by
+cross-correlation (filters can add delay); loudness-match it to the raw first.
 Usage: make_alternating_ab.py <raw> <processed> <output.mp3> [--segment-seconds 4] [--frequency 660]
        [--below-speech-db 10]"""
 import argparse
