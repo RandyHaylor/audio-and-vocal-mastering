@@ -29,12 +29,13 @@ are marked as such. Quotes below are from his articles, fetched 2026-10-15.
    - processed time-aligned to raw by cross-correlation (FIR filters add delay; ffmpeg
      `firequalizer` adds 10 ms);
    - **audible markers, not crossfades** (a crossfade hides the switch): into processed, insert
-     one 30 ms silence ("tic"); back to raw, insert silence, 30 ms of audio, silence ("tic tic").
-     Insert them rather than overwriting audio.
+     one **100 ms** silence (one cut); back to raw, insert 100 ms silence, 100 ms of audio, 100 ms
+     silence (two cuts). 30 ms was too short to hear clearly. Insert them rather than overwriting
+     audio.
 
    Say what changed, and which segment is which.
 
-   Script: `scripts/make_alternating_ab.py <raw> <processed> <out.mp3> [segment s=2] [marker ms=30]`.
+   Script: `scripts/make_alternating_ab.py <raw> <processed> <out.mp3> [segment s=2] [marker ms=100]`.
    Loudness-match the processed file first; `room_resonance_curve.py` does this for its output.
 5. **Measure the tool before trusting it.** Before any filter chain is used, run white or pink noise
    through it with every processing amount at zero (ratio 1:1, gain 0) and print the response in

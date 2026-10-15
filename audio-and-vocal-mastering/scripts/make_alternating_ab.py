@@ -1,8 +1,9 @@
-"""Alternating A/B file with audible markers: raw (A) 2 s, ONE 30 ms silence cut, processed (B) 2 s,
-then a DOUBLE cut (30 ms silence, 30 ms sound, 30 ms silence), raw again, and so on. Raw first.
-"tic" = now B, "tic tic" = now A. The markers are inserted (nothing is overwritten); the timeline
-just continues after them. The processed file is aligned to the raw by cross-correlation.
-Usage: make_alternating_ab.py <raw> <processed> <output.mp3> [segment seconds=2] [marker ms=30]"""
+"""Alternating A/B file with audible markers: raw (A) 2 s, ONE 100 ms silence cut, processed (B) 2 s,
+then a DOUBLE cut (100 ms silence, 100 ms sound, 100 ms silence), raw again, and so on. Raw first.
+One cut = now B, two cuts = now A. (30 ms cuts were too short to hear clearly.) The markers are
+inserted (nothing is overwritten); the timeline just continues after them. The processed file is
+aligned to the raw by cross-correlation.
+Usage: make_alternating_ab.py <raw> <processed> <output.mp3> [segment seconds=2] [marker ms=100]"""
 import subprocess
 import sys
 
@@ -11,7 +12,7 @@ import numpy
 RATE = 44100
 raw_path, processed_path, output_path = sys.argv[1:4]
 segment_samples = int(RATE * (float(sys.argv[4]) if len(sys.argv) > 4 else 2.0))
-marker_samples = int(RATE * (float(sys.argv[5]) if len(sys.argv) > 5 else 30.0) / 1000)
+marker_samples = int(RATE * (float(sys.argv[5]) if len(sys.argv) > 5 else 100.0) / 1000)
 
 
 def decode(path):
