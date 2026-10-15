@@ -21,8 +21,16 @@ are marked as such. Quotes below are from his articles, fetched 2026-10-15.
    (*Compressors*). Decide *why* each stage is there.
 4. **Compare fairly.** Level-match every A/B: "people will generally pick the brighter (or just
    louder) version as sounding better", and "Just because something sounds 'better,' it is not
-   necessarily higher fidelity" (*Dispelling Popular Audio Myths*). Give the user loudness-matched
-   samples, and say what changed.
+   necessarily higher fidelity" (*Dispelling Popular Audio Myths*). Winer: the switch "be performed
+   very quickly", in under a second, not minutes apart. So give the listener **alternating A/B
+   files**, not separate files:
+   - one file that switches between raw and processed every **2 s**, **raw first**;
+   - processed loudness-matched to raw (measure integrated LUFS, apply one `volume=` gain);
+   - processed time-aligned to raw by cross-correlation (FIR filters add delay; ffmpeg
+     `firequalizer` adds 10 ms);
+   - a short **30 ms equal-power crossfade** at each switch, only to avoid clicks.
+
+   Say what changed, and which segment is which.
 5. **Measure the tool before trusting it.** Before any filter chain is used, run white or pink noise
    through it with every processing amount at zero (ratio 1:1, gain 0) and print the response in
    1/3 octaves. A neutral setting must come out within ~0.5 dB everywhere. Only then judge
@@ -129,6 +137,9 @@ are marked as such. Quotes below are from his articles, fetched 2026-10-15.
   - 3 wide bands stayed within ~0.2 dB except −2.7 dB at 3–6 kHz.
 
   Don't use it for narrow bands. Confirm with noise before any multiband use.
+- **`firequalizer` with `scale=loglog`** (and an `entry(0,…)` point) silently applied no change
+  at all on ffmpeg 4.4. The default scale (`linlog`) with dense `entry()` points (every 1/24 octave)
+  worked: neutral measured 0.00 dB, and a computed 1.2 dB curve measured within 0.1 dB of plan.
 - Haas widening (`haas`) changed the band balance by < 0.5 dB on a mono voice.
 - Chatterbox TTS peaks were flat-topped (99.9th percentile within 0.1 dB of the max), so peak
   "spike" limiting does little on that material. Measure your own source's peak distribution.

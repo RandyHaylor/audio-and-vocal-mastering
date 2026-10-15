@@ -14,7 +14,8 @@ silently switching to dynamic mode and `mcompand` colouring the tone with narrow
 - Treat what the listener hears as the fact; a measurement that disagrees is incomplete.
 - Make small moves, capping automatic corrections at 1.5 dB.
 - Process only when there's a reason.
-- Level-match every A/B comparison.
+- Level-match every A/B comparison, and give it as one file that alternates raw and processed
+  every 2 s.
 - Test any filter chain with noise at neutral settings before trusting it.
 - Look up ranges and tool behaviour instead of recalling them.
 
