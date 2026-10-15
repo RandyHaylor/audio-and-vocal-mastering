@@ -14,9 +14,11 @@ are marked as such. Quotes below are from his articles, fetched 2026-10-15.
 1. **The user's ears are the fact.** I can't listen. A measurement that disagrees with what the
    user hears means my measurement is incomplete. Look wider; never argue.
 2. **Small moves.** Mastering is "final touch EQ'ing" (Winer, *Second Guessing Mastering
-   Engineers*). His own mastering move there: "I boosted 5 KHz and above by 1 dB". **Cap any
-   automatic correction at 1.5 dB per point.** A tool or curve that moves any band by several dB
-   is broken for this purpose, not "strong".
+   Engineers*). His own mastering move there: "I boosted 5 KHz and above by 1 dB". Broad tonal
+   moves stay at 1–1.5 dB. The exception is a cut on a **measured, steady resonance**: it may be as
+   deep as the resonance sticks out (up to 6 dB in the room resonance fix below), because it
+   removes something that shouldn't be there. A tool that moves bands by several dB *without* such
+   evidence is broken, not "strong".
 3. **Do nothing unless it is needed.** "Every track or complete mix does not need compression!"
    (*Compressors*). Decide *why* each stage is there.
 4. **Compare fairly.** Level-match every A/B: "people will generally pick the brighter (or just
@@ -24,24 +26,23 @@ are marked as such. Quotes below are from his articles, fetched 2026-10-15.
    necessarily higher fidelity" (*Dispelling Popular Audio Myths*). Winer: the switch "be performed
    very quickly", in under a second, not minutes apart. So give the listener **alternating A/B
    files**, not separate files:
-   - one file that switches between raw and processed every **2 s**, **raw first**;
-   - processed loudness-matched to raw (measure integrated LUFS, apply one `volume=` gain);
-   - processed time-aligned to raw by cross-correlation (FIR filters add delay; ffmpeg
-     `firequalizer` adds 10 ms);
-   - **audible markers, not crossfades** (a crossfade hides the switch). **Mute the audio already
-     there; never insert**, so the file keeps the source's length and timeline (inserted gaps
-     sound jolting):
-     - into processed: mute the segment's first **200 ms** (one cut);
-     - back to raw: **150 ms muted, 150 ms heard, 150 ms muted** (two cuts);
-     - 5 ms fades on each mute edge, so there are no clicks.
-
-     Shorter marks (30 ms, 100 ms) sounded like glitches.
+   - one file that switches between raw and processed every **4 s**, **raw first** (2 s was too
+     short to judge);
+   - processed time-aligned to raw by cross-correlation (filters can add delay);
+   - **a quiet beep marks each switch**, mixed over the audio: one **660 Hz** beep (200 ms) going
+     into processed, beep beep (150 ms, 150 ms gap, 150 ms) going back to raw, **10 dB under the
+     speech level**, 10 ms fades. Nothing is muted or inserted, so the file keeps the source's
+     length. (Tried and dropped: crossfades hide the switch; muted cuts are missed when the speech
+     pauses, and shorter cuts sound like glitches; inserted gaps feel jolting.)
+   - **Loudness matching for a cut-only fix: match about 75%, not 100%.** When a fix removes boom,
+     full matching turns the processed side up so far that it "FEELS like you made the person
+     louder" (the listener). For other processing, start from a full match.
 
    Say what changed, and which segment is which.
 
-   Script: `scripts/make_alternating_ab.py <raw> <processed> <out.mp3> [segment s=2] [single ms=200]
-   [double part ms=150]`.
-   Loudness-match the processed file first; `room_resonance_curve.py` does this for its output.
+   Script: `scripts/make_alternating_ab.py <raw> <processed> <out.mp3> [--segment-seconds 4]
+   [--frequency 660] [--below-speech-db 10]`. Give it a processed file that is already
+   loudness-matched; `room_resonance_fix.py` writes one.
 5. **Measure the tool before trusting it.** Before any filter chain is used, run white or pink noise
    through it with every processing amount at zero (ratio 1:1, gain 0) and print the response in
    1/3 octaves. A neutral setting must come out within ~0.5 dB everywhere. Only then judge
@@ -93,47 +94,81 @@ are marked as such. Quotes below are from his articles, fetched 2026-10-15.
 - **EQ cannot really fix a room:** "no single EQ curve can give a flat response everywhere", "EQ
   cut to reduce a peak will not reduce the peak's acoustic ringing"; only "low frequency peaks
   (only) caused by natural room resonance" can be helped a little, in moderation.
-- So an automatic "detect the room" curve is a **gentle tilt toward neutral**, not a repair.
+- So an automatic "detect the room" fix only **cuts the real, steady resonances, gently**. It is
+  not a multiband EQ that flattens everything.
 
-### Room resonance curve: the approach (proven in A/B listening tests)
+### Room resonance fix: the canonical method (settled in A/B listening tests, 2026-10)
 
-Script: `scripts/room_resonance_curve.py <source> <out.mp3> [--max-cut-db 1.2]
-[--smoothing-octaves 0.33] [--full-excess-db 3] [--low-hz 100] [--high-hz 6000]`. It prints the
-curve every 1/3 octave and the deepest cut, writes a loudness-matched processed file, and saves
-the ffmpeg filter as `<out>.filter.txt` for reuse.
+Script: `scripts/room_resonance_fix.py <out.mp3> <wav> [<wav> …] [--max-cut-db 6] [--multiplier 1]
+[--low-hz 100] [--high-hz 6000] [--bands 5] [--loudness-match 0.75]`. It prints the bands, writes
+the processed file (75% loudness-matched), and saves the ffmpeg chain as `<out>.filter.txt` to
+apply unchanged to every other file.
 
-1. **Voiced frames only.** Use ~85 ms Hann frames (2048 samples at 24 kHz) whose RMS is within
-   30 dB of the loudest.
-2. **Local stick-out.** For each frame, take its dB spectrum minus the average of the octave
-   around each frequency.
-3. **Steady peaks.** Per frequency, take the **median** over all frames. Formants and pitch move
-   around, so they average out; a resonance of the room or the voice stays at one frequency, so it
-   survives. Negative values become 0, since this only ever cuts.
-4. **One smooth curve.** Smooth that excess across log frequency (Gaussian, 1/3-octave full width
-   at half height). The result is one curve, not a row of narrow notches.
-5. **Soft depth.** Cut = −max × min(1, excess / 3 dB): 0 to **1.2 dB**, deeper where a frequency
-   sticks out more. Only between 100 Hz and 6 kHz (and ≤ 0.45 × sample rate), tapered to 0 over
-   the half-octave inside each edge. Peaks far below the main level, such as an 8–11 kHz cluster
-   25–30 dB down on one TTS voice, are likely artifacts. They're left out. That reading is an
-   inference, not verified.
-6. **Apply** with ffmpeg `firequalizer`, one `entry()` every 1/24 octave, default scale. Noise-test
-   the filter (rule 5). It matched the plan within 0.1 dB.
+**Detection: a resonance is a frequency that stays high while the content changes.**
+1. Voiced frames only (frame RMS within 30 dB of the loudest), read from the files in order until
+   **60 s of speech**.
+2. Cut into **3 s stretches**. In each, average the frames' power (time smoothing), put it on a
+   log-spaced grid (1/48 octave), and compare each frequency with its **surroundings only**: the
+   mean of the medians of the two flanks, 1/3 to 1 octave below and above. Then smooth lightly
+   (1/12 octave).
+3. It counts only if it sticks out ≥ 0.5 dB in **≥ 90% of the stretches**. Its strength is the
+   **20th percentile** across stretches, so loud moments can't inflate it.
+
+**Bands: a few real parametric bells** (ffmpeg `equalizer`), not a drawn curve.
+4. Peaks and widths come from a 1/3-octave smoothed copy; depth from the 1/12-octave copy. Keep
+   the strongest **5** between **100 Hz and 6 kHz**. Cut = −min(**6 dB**, strength × **1**).
+5. **Close pairs** (bells overlapping a lot) become one wide cut over both plus one narrow, weaker
+   **positive** bell at the dip between them, fitted to the measured need. The pair is a net dip.
+6. **Net checks:** never a net boost anywhere, and overlapping tails never stack past the max.
 
 **Using it:**
-- Measure on **≥ 60 s of speech**. If the first chapter is shorter, continue into the chapters
-  after it.
-- Measure **once per book/voice** and apply the **same curve to every chapter**, so the tone never
-  changes mid-book. Re-measure per chapter only on purpose.
-- Always give an alternating A/B file (rule 4) before adopting a curve.
+- Measure **once per book/voice** (≥ 60 s of speech, continuing into later chapters if the first
+  is short) and apply the **same chain to every chapter**, so the tone never changes mid-book.
+- Always give an alternating A/B (rule 4) before adopting it.
+- What the listener hears decides. Change `--multiplier` (strength) or `--low-hz` and listen again.
 
-**What it found (2026-10, five TTS books, four voices):**
-- The curve follows the voice, not the text. Two different books read by the same voice got
-  nearly identical curves.
-- Different voices got clearly different curves: low-mid "boxy" cuts around 400–640 Hz on some,
-  2.5–5 kHz on another.
-- On one voice, the listener preferred the full 1.2 dB version over a half-depth one and over a
-  broad 1-octave one.
-- A cut in 3–5 kHz touches Winer's "Clarity above 3 KHz" range. Listen for dullness.
+**Validation (keep these as tests if you change the method):**
+- pink noise, white noise, and pink noise in speech-like bursts → **0 bands**;
+- a +4 dB bell added to pink noise at 500 Hz → found at ~500 Hz with about the same width;
+- the real ffmpeg chain, measured on noise, matches the planned response within ~0.3 dB.
+
+**Mistakes made on the way (don't repeat them):**
+- *Median of per-frame stick-out:* found "resonances" in pink noise. Random per-frame variation
+  plus a ~0.9 dB bias passed as peaks.
+- *Baseline = the whole octave around the frequency:* a resonance's own skirts lifted its baseline,
+  so +4 dB measured as about +2.
+- *Persistence test before any frequency smoothing, then heavy smoothing:* real peaks broke into
+  scattered points and were averaged away, so one voice got no bands.
+- *Half-second stretches:* rejected real resonances. 3 s stretches sounded right to the listener.
+- *A 3 dB max:* nearly every band stopped at the max, so the limit decided the depth, not the
+  detection. 6 dB with ×1 sounded right.
+- *A drawn curve with hundreds of points* (`firequalizer`): it isn't what Winer means by EQ, and it
+  can follow every bump. Use a few parametric bells.
+- *Cutting 3–5 kHz is Winer's clarity range,* but here the listener preferred keeping 100 Hz–6 kHz.
+  Listen for dullness.
+- *Full cuts at about 100–120 Hz on male voices* may be the voice's own pitch. If it sounds thinner,
+  raise `--low-hz` to about 150.
+
+**What it found (five TTS books, four voices):** 2–5 bands per book. Two books read by the same
+voice shared their bands. Different voices got different frequencies.
+
+### Example requests (how a user asks an agent)
+
+> "Use the audio-and-vocal-mastering skill. Run the room resonance fix on `chapter-01.wav` and make
+> me an A/B comparison file."
+
+> "Detect the room resonances on the first minute of speech from these narration files, apply the
+> fix, and give me an A/B so I can hear the difference."
+
+What the agent does:
+1. `scripts/room_resonance_fix.py fixed.mp3 chapter-01.wav [chapter-02.wav …]`, then report the
+   bands found.
+2. `scripts/make_alternating_ab.py chapter-01.wav fixed.mp3 ab.mp3`, then give the user the file and
+   explain the beeps (one = processed, two = raw; raw first, every 4 s).
+3. The user listens and says what they hear. Re-run with changed settings if asked, for example
+   `--multiplier 0.7` or `--low-hz 150`.
+4. When it's settled, apply `fixed.mp3.filter.txt` unchanged to every chapter:
+   `ffmpeg -i chapter-NN.wav -af "$(cat fixed.mp3.filter.txt)" out-NN.wav`.
 
 ## Compression and limiting (Winer, *Compressors*)
 
