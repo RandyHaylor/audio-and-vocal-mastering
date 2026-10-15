@@ -33,10 +33,14 @@ are marked as such. Quotes below are from his articles, fetched 2026-10-15.
      Insert them rather than overwriting audio.
 
    Say what changed, and which segment is which.
+
+   Script: `scripts/make_alternating_ab.py <raw> <processed> <out.mp3> [segment s=2] [marker ms=30]`.
+   Loudness-match the processed file first; `room_resonance_curve.py` does this for its output.
 5. **Measure the tool before trusting it.** Before any filter chain is used, run white or pink noise
    through it with every processing amount at zero (ratio 1:1, gain 0) and print the response in
    1/3 octaves. A neutral setting must come out within ~0.5 dB everywhere. Only then judge
-   what the actual settings do.
+   what the actual settings do. Script: `scripts/measure_filter_frequency_response.py "<chain>"`
+   (or `@file`).
 6. **Look it up, don't recall it.** Frequency ranges, ffmpeg filter behaviour and standards are
    checked against a source before they are stated as fact.
 
@@ -83,14 +87,47 @@ are marked as such. Quotes below are from his articles, fetched 2026-10-15.
 - **EQ cannot really fix a room:** "no single EQ curve can give a flat response everywhere", "EQ
   cut to reduce a peak will not reduce the peak's acoustic ringing"; only "low frequency peaks
   (only) caused by natural room resonance" can be helped a little, in moderation.
-- So an automatic "detect the room" curve is a **gentle tilt toward neutral**, not a repair:
-  - measure steady peaks (present in most voiced frames, at a fixed frequency);
-  - turn them into one **smooth** curve (FIR, e.g. ffmpeg `firequalizer` with many `entry()`
-    points), not a row of narrow notches;
-  - ≤ 1.5 dB anywhere, limited to the range where the source has real content.
-  - Peaks far below the main content's level (e.g. on one TTS voice, an 8–11 kHz cluster 25–30 dB
-    down) are likely artifacts. Report them; don't chase them. That reading is an inference, not
-    verified.
+- So an automatic "detect the room" curve is a **gentle tilt toward neutral**, not a repair.
+
+### Room resonance curve: the approach (proven in A/B listening tests)
+
+Script: `scripts/room_resonance_curve.py <source> <out.mp3> [--max-cut-db 1.2]
+[--smoothing-octaves 0.33] [--full-excess-db 3] [--low-hz 100] [--high-hz 6000]`. It prints the
+curve every 1/3 octave and the deepest cut, writes a loudness-matched processed file, and saves
+the ffmpeg filter as `<out>.filter.txt` for reuse.
+
+1. **Voiced frames only.** Use ~85 ms Hann frames (2048 samples at 24 kHz) whose RMS is within
+   30 dB of the loudest.
+2. **Local stick-out.** For each frame, take its dB spectrum minus the average of the octave
+   around each frequency.
+3. **Steady peaks.** Per frequency, take the **median** over all frames. Formants and pitch move
+   around, so they average out; a resonance of the room or the voice stays at one frequency, so it
+   survives. Negative values become 0, since this only ever cuts.
+4. **One smooth curve.** Smooth that excess across log frequency (Gaussian, 1/3-octave full width
+   at half height). The result is one curve, not a row of narrow notches.
+5. **Soft depth.** Cut = −max × min(1, excess / 3 dB): 0 to **1.2 dB**, deeper where a frequency
+   sticks out more. Only between 100 Hz and 6 kHz (and ≤ 0.45 × sample rate), tapered to 0 over
+   the half-octave inside each edge. Peaks far below the main level, such as an 8–11 kHz cluster
+   25–30 dB down on one TTS voice, are likely artifacts. They're left out. That reading is an
+   inference, not verified.
+6. **Apply** with ffmpeg `firequalizer`, one `entry()` every 1/24 octave, default scale. Noise-test
+   the filter (rule 5). It matched the plan within 0.1 dB.
+
+**Using it:**
+- Measure on **≥ 60 s of speech**. If the first chapter is shorter, continue into the chapters
+  after it.
+- Measure **once per book/voice** and apply the **same curve to every chapter**, so the tone never
+  changes mid-book. Re-measure per chapter only on purpose.
+- Always give an alternating A/B file (rule 4) before adopting a curve.
+
+**What it found (2026-10, five TTS books, four voices):**
+- The curve follows the voice, not the text. Two different books read by the same voice got
+  nearly identical curves.
+- Different voices got clearly different curves: low-mid "boxy" cuts around 400–640 Hz on some,
+  2.5–5 kHz on another.
+- On one voice, the listener preferred the full 1.2 dB version over a half-depth one and over a
+  broad 1-octave one.
+- A cut in 3–5 kHz touches Winer's "Clarity above 3 KHz" range. Listen for dullness.
 
 ## Compression and limiting (Winer, *Compressors*)
 
