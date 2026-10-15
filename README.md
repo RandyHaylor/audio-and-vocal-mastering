@@ -15,7 +15,8 @@ silently switching to dynamic mode and `mcompand` colouring the tone with narrow
 - Make small moves, capping automatic corrections at 1.5 dB.
 - Process only when there's a reason.
 - Level-match every A/B comparison, and give it as one file that alternates raw and processed
-  every 2 s, with a silence "tic" into processed and "tic tic" back to raw.
+  every 2 s, marking each switch by muting the audio already there: one 200 ms cut into
+  processed, two 150 ms cuts back to raw.
 - Test any filter chain with noise at neutral settings before trusting it.
 - Look up ranges and tool behaviour instead of recalling them.
 
@@ -40,7 +41,7 @@ ln -s "$PWD/audio-and-vocal-mastering/audio-and-vocal-mastering" <your agent's s
 In `audio-and-vocal-mastering/scripts/` (python3 + numpy, ffmpeg and ffprobe on PATH):
 - `room_resonance_curve.py`: detects a voice's steady resonances and applies a soft 0–1.2 dB
   correction curve, loudness-matched to the source. It's the skill's "detect the room" approach.
-- `make_alternating_ab.py`: one A/B file that switches raw/processed every 2 s, raw first, with
-  silence markers ("tic" = now processed, "tic tic" = now raw).
+- `make_alternating_ab.py`: one A/B file that switches raw/processed every 2 s, raw first, at the
+  source's length. One muted cut means now processed; two cuts mean now raw.
 - `measure_filter_frequency_response.py`: the frequency response of any ffmpeg filter chain,
   from white noise. Run it before trusting a filter.

@@ -28,14 +28,19 @@ are marked as such. Quotes below are from his articles, fetched 2026-10-15.
    - processed loudness-matched to raw (measure integrated LUFS, apply one `volume=` gain);
    - processed time-aligned to raw by cross-correlation (FIR filters add delay; ffmpeg
      `firequalizer` adds 10 ms);
-   - **audible markers, not crossfades** (a crossfade hides the switch): into processed, insert
-     one **100 ms** silence (one cut); back to raw, insert 100 ms silence, 100 ms of audio, 100 ms
-     silence (two cuts). 30 ms was too short to hear clearly. Insert them rather than overwriting
-     audio.
+   - **audible markers, not crossfades** (a crossfade hides the switch). **Mute the audio already
+     there; never insert**, so the file keeps the source's length and timeline (inserted gaps
+     sound jolting):
+     - into processed: mute the segment's first **200 ms** (one cut);
+     - back to raw: **150 ms muted, 150 ms heard, 150 ms muted** (two cuts);
+     - 5 ms fades on each mute edge, so there are no clicks.
+
+     Shorter marks (30 ms, 100 ms) sounded like glitches.
 
    Say what changed, and which segment is which.
 
-   Script: `scripts/make_alternating_ab.py <raw> <processed> <out.mp3> [segment s=2] [marker ms=100]`.
+   Script: `scripts/make_alternating_ab.py <raw> <processed> <out.mp3> [segment s=2] [single ms=200]
+   [double part ms=150]`.
    Loudness-match the processed file first; `room_resonance_curve.py` does this for its output.
 5. **Measure the tool before trusting it.** Before any filter chain is used, run white or pink noise
    through it with every processing amount at zero (ratio 1:1, gain 0) and print the response in
