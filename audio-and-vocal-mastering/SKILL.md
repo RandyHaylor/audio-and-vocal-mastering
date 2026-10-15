@@ -28,7 +28,9 @@ are marked as such. Quotes below are from his articles, fetched 2026-10-15.
    - processed loudness-matched to raw (measure integrated LUFS, apply one `volume=` gain);
    - processed time-aligned to raw by cross-correlation (FIR filters add delay; ffmpeg
      `firequalizer` adds 10 ms);
-   - a short **30 ms equal-power crossfade** at each switch, only to avoid clicks.
+   - **audible markers, not crossfades** (a crossfade hides the switch): into processed, insert
+     one 30 ms silence ("tic"); back to raw, insert silence, 30 ms of audio, silence ("tic tic").
+     Insert them rather than overwriting audio.
 
    Say what changed, and which segment is which.
 5. **Measure the tool before trusting it.** Before any filter chain is used, run white or pink noise
